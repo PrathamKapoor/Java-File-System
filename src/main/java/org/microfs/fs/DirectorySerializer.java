@@ -26,15 +26,12 @@ public final class DirectorySerializer {
 
     public static List<DirectoryEntry> deserialize(ByteBuffer block) {
         List<DirectoryEntry> entries = new ArrayList<>();
-        block.flip();
+        block.position(0);
         while (block.remaining() >= 6) {
             int inode = block.getInt();
-            if (inode <= 0) {
-                // End of valid entries in this block
-                break;
-            }
             int nameLen = block.getShort() & 0xFFFF;
-            if (nameLen < 1 || nameLen > MAX_NAME_LENGTH || block.remaining() < nameLen) {
+            if (inode < 0 || nameLen < 1 || nameLen > MAX_NAME_LENGTH || block.remaining() < nameLen) {
+                // End of valid entries in this block
                 break;
             }
             byte[] nameBytes = new byte[nameLen];

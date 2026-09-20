@@ -1,3 +1,5 @@
+package org.microfs.debug;
+
 import org.microfs.storage.*;
 import java.nio.file.*;
 import java.nio.*;
@@ -32,5 +34,6 @@ public class InspectSuperblock {
         System.out.println("Inode table block: " + inodeTableBlock);
         System.out.println("Data region block: " + dataRegionBlock);
         System.out.println("Root inode: " + rootInode);
+        disk.close();
     }
 }

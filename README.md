@@ -8,7 +8,8 @@ MicroFS simulates a filesystem over a virtual disk image (`disk.img`). It suppor
 
 - Persistent disk format with superblock, inode table, bitmaps, and data blocks
 - Multiple directory representations: Linear, Hash, RB-Tree, Hybrid, Adaptive
-- Red-Black Tree, Trie, LRU cache (framework), block allocation framework
+- Implemented core data structures: Red-Black Tree, Trie, persistent Bitmaps, directory strategies
+- Standalone / partial frameworks: LRU cache (framework interface), block allocation framework
 - CLI with core filesystem commands
 - Benchmark engine and workload framework
 - FSCK consistency checker
@@ -60,10 +61,20 @@ The command names above are the commands currently registered by `MicrofsCLI`; a
 
 ## Data structures
 
-- **RedBlackTree**: genuine RB tree with insert/delete/rotations/recolor/min/max/successor/predecessor/invariant verification
-- **Trie**: auxiliary prefix search
-- **HashDirectory / LinearDirectory / RBTreeDirectory / HybridDirectory / AdaptiveDirectory**: directory indexing strategies
-- **Bitmap**: persistent inode/block allocation bitmap
+### Implemented
+- **RedBlackTree**: Genuine self-balancing Red-Black Tree with insertion, deletion, rotations, recoloring, min/max, successor/predecessor, and invariant verification.
+- **Trie**: Character-level Trie for auxiliary prefix searching and namespace autocompletion.
+- **Bitmap**: Persistent inode and data block allocation bitmaps with bitwise scan-and-set and disk synchronization.
+- **Directory Indexing Strategies**:
+  - `LinearDirectory`: Unsorted list baseline ($O(n)$ search).
+  - `HashDirectory`: Hash table indexing for fast exact lookups ($O(1)$ average).
+  - `RBTreeDirectory`: Ordered tree index supporting range queries and ordered listings ($O(\log n)$).
+  - `HybridDirectory`: Dual index combining hash table lookups with trie prefix searches.
+  - `AdaptiveDirectory`: Dynamically transitions between Linear, Hash, and RB-Tree based on entry count and query patterns.
+
+### Framework / Partial
+- **LRU Cache**: Interface and standalone eviction cache framework; ready for integration into a future page/buffer cache layer, but not part of the primary disk runtime.
+- **Block Allocation Strategies**: Basic bitmap allocation integrated into disk formatting and file storage; extensible framework provided for pluggable allocation policies.
 
 ## Tests
 
@@ -71,33 +82,47 @@ The command names above are the commands currently registered by `MicrofsCLI`; a
 mvn test
 ```
 
-## Practical Performance
+## Practical Performance & Key Benchmark Results
 
-MicroFS includes a reproducible latency validation suite covering realistic namespace sizes and filesystem operations. Measurements include exact lookup, prefix search, path resolution, directory listing, file and directory creation probes, cold versus warm execution, and persistence mount/remount timing. Results are specific to the tested MicroFS implementation, JDK, environment, and workload; they are not general filesystem performance claims.
+MicroFS includes a reproducible latency validation suite covering realistic namespace sizes and filesystem operations (`results/usability/USABILITY_REPORT.md`, measured on JDK 25, Windows 11):
 
-Run the final validation with the available JDK using:
+| Workload / Operation | Scale (Entries) | Strategy | Warm Median Latency | Key Observation / DSA Takeaway |
+|---|---:|---|---:|---|
+| Exact lookup | 50,000 | Hash | ~100 ns | Near-instant constant-time ($O(1)$) retrieval at scale |
+| Exact lookup baseline | 10,000 | Linear | 28.0 µs | Linear scan exhibits severe latency degradation ($O(n)$) |
+| Prefix search comparison | 50,000 | Linear vs. Trie | Linear: ~715 µs<br>Trie: ~1.79 ms | **Teaching point:** Trie was slower than linear prefix search due to pointer hopping & cache misses vs contiguous array scanning |
+| Ordered directory listing | 50,000 | RB-Tree | ~44.8 ms | Full in-order traversal yields sorted output without external sort pass |
+| Dynamic index construction | 1,000 | Adaptive | ~197.6 ms | Rebuilding representations during scale transition incurs measurable construction cost |
+
+> **Key DSA Insight:** While asymptotic theory predicts that a Trie should outperform linear scanning for prefix search, hardware cache locality dominates at short prefix lengths. Iterating contiguous byte arrays in L1/L2 cache outpaces node-by-node pointer traversal across scattered heap-allocated Trie nodes.
+
+Run the final validation suite using:
 
 ```text
 java -cp target/validation-classes org.microfs.benchmark.RealWorldValidation results/usability
 ```
 
-See `results/usability/USABILITY_REPORT.md` and `results/usability/latency.csv` for the measured run. `find`, deletion, and operational `stat` are recorded as unavailable because the current CLI does not support them.
+See `results/usability/USABILITY_REPORT.md` and `results/usability/latency.csv` for full measurement logs.
 
 ## Documentation
 
-See `docs/` (or this directory) for:
+Comprehensive project documentation is maintained in the `docs/` directory:
 
-- `ARCHITECTURE.md`
-- `DATA_STRUCTURES.md`
-- `ALGORITHMS.md`
-- `BENCHMARKS.md`
-- `CLI.md`
-- `FILESYSTEM_FORMAT.md`
+- [Architecture Guide](file:///C:/Projects/ADS/docs/ARCHITECTURE.md)
+- [Data Structures Reference](file:///C:/Projects/ADS/docs/DATA_STRUCTURES.md)
+- [Algorithms & Tradeoffs](file:///C:/Projects/ADS/docs/ALGORITHMS.md)
+- [Benchmark Suite & Analysis](file:///C:/Projects/ADS/docs/BENCHMARKS.md)
+- [CLI Reference](file:///C:/Projects/ADS/docs/CLI.md)
+- [Filesystem On-Disk Format](file:///C:/Projects/ADS/docs/FILESYSTEM_FORMAT.md)
+- [Development Guide](file:///C:/Projects/ADS/docs/DEVELOPMENT.md)
+- [Testing & Validation](file:///C:/Projects/ADS/docs/TESTING.md)
+- [Phase 4 Report](file:///C:/Projects/ADS/docs/PHASE4_REPORT.md)
+- [Release Notes](file:///C:/Projects/ADS/docs/RELEASE_NOTES.md)
 
 ## Limitations
 
 - Single-threaded core
-- Not a replacement for NTFS/ext4/APFS
+- Not a replacement for production filesystems (NTFS/ext4/APFS)
 - Benchmark results are environment-specific
 - Advanced features (journaling, symlinks, hard links) are deferred
 

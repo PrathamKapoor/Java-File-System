@@ -25,16 +25,26 @@ public class Filesystem {
 
     public void format(int blockSize, long blockCount) {
         if (mounted) throw new IllegalStateException("Filesystem already mounted");
+        if (disk != null) {
+            try { disk.close(); } catch (Exception ignored) {}
+            disk = null;
+        }
         this.disk = BlockDevice.format(imagePath, blockSize, blockCount);
         this.superblock = Superblock.createDefault(disk);
         this.superblock.write(disk);
         // Initialize root inode (inode 0) as directory using InodeTable mechanism
         try {
-            Bitmap inodeBitmapInit = new Bitmap(disk, superblock.getInodeBitmapBlock(), 2, superblock.getInodeCapacity());
-            inodeBitmapInit.allocate(); // reserve inode 0
-            inodeBitmapInit.flush();
+            this.inodeBitmap = new Bitmap(disk, superblock.getInodeBitmapBlock(), 1, superblock.getInodeCapacity());
+            this.inodeBitmap.allocate(); // reserve inode 0
+            this.inodeBitmap.flush();
 
-            InodeTable inodeTableInit = new InodeTable(disk, superblock.getInodeCapacity(), superblock.getInodeTableBlock());
+            int blockBitmapCapacity = (int) (disk.blockCount() - superblock.getDataRegionBlock());
+            if (blockBitmapCapacity < 1) blockBitmapCapacity = 64;
+            this.blockBitmap = new Bitmap(disk, superblock.getBlockBitmapBlock(), 1, blockBitmapCapacity);
+            this.blockBitmap.allocate(); // reserve data block 0 for root directory
+            this.blockBitmap.flush();
+
+            this.inodeTable = new InodeTable(disk, superblock.getInodeCapacity(), superblock.getInodeTableBlock());
             // Initialize root directory inode directly through table
             Inode rootInode = new Inode(FileType.DIRECTORY);
             rootInode.setPermissions(0755);
@@ -43,7 +53,7 @@ public class Filesystem {
             rootInode.setSize(0);
             rootInode.setMtime(System.currentTimeMillis());
             // Initialize directory entries (. and ..) in root inode's direct block
-            int rootDataBlock = (int) superblock.getDataRegionBlock();
+            int rootDataBlock = superblock.getDataRegionBlock();
             List<org.microfs.dsa.DirectoryEntry> rootEntries = new ArrayList<>();
             rootEntries.add(new org.microfs.dsa.DirectoryEntry(".", 0));
             rootEntries.add(new org.microfs.dsa.DirectoryEntry("..", 0));
@@ -55,19 +65,8 @@ public class Filesystem {
                 disk.writeBlock(rootDataBlock + i, blockToWrite);
                 rootInode.setDirect(i, rootDataBlock + i);
             }
-            // Manually serialize and write inode 0 to inode table region
-            java.nio.ByteBuffer inodeBuf = java.nio.ByteBuffer.allocate(Inode.SIZE).order(java.nio.ByteOrder.LITTLE_ENDIAN);
-            rootInode.serialize(inodeBuf);
-            inodeBuf.flip();
-            // InodeTable uses slot-based storage; for simplicity, write at slot 0 of first inode block
-            long inodeRegionStart = superblock.getInodeTableBlock();
-            java.nio.ByteBuffer inodeTableBlock = java.nio.ByteBuffer.allocate(disk.blockSize()).order(java.nio.ByteOrder.LITTLE_ENDIAN);
-            inodeTableBlock.put(inodeBuf);
-            // Pad rest
-            while (inodeTableBlock.hasRemaining()) inodeTableBlock.put((byte) 0);
-            inodeTableBlock.flip();
-            disk.writeBlock(inodeRegionStart, inodeTableBlock);
-            inodeTableInit.flush();
+            this.inodeTable.put(rootInode);
+            this.inodeTable.flush();
         } catch (Exception e) {
             throw new RuntimeException("Failed to initialize root inode", e);
         }
@@ -75,24 +74,33 @@ public class Filesystem {
 
     public void mount() {
         if (mounted) throw new IllegalStateException("Already mounted");
+        if (disk != null) {
+            try { disk.close(); } catch (Exception ignored) {}
+            disk = null;
+        }
         this.disk = BlockDevice.open(imagePath);
         this.superblock = Superblock.read(disk);
         // Initialize bitmaps at superblock locations
-        this.inodeBitmap = new Bitmap(disk, superblock.getInodeBitmapBlock(), 2, superblock.getInodeCapacity());
+        this.inodeBitmap = new Bitmap(disk, superblock.getInodeBitmapBlock(), 1, superblock.getInodeCapacity());
         int blockBitmapCapacity = (int) (disk.blockCount() - superblock.getDataRegionBlock());
         if (blockBitmapCapacity < 1) blockBitmapCapacity = 64;
-        this.blockBitmap = new Bitmap(disk, superblock.getBlockBitmapBlock(), 2, blockBitmapCapacity);
+        this.blockBitmap = new Bitmap(disk, superblock.getBlockBitmapBlock(), 1, blockBitmapCapacity);
         this.inodeTable = new InodeTable(disk, superblock.getInodeCapacity(), superblock.getInodeTableBlock());
         this.mounted = true;
     }
 
     public void unmount() {
-        if (!mounted) throw new IllegalStateException("Not mounted");
+        if (!mounted && disk == null) throw new IllegalStateException("Not mounted");
         if (disk != null) {
-            inodeTable.flush();
-            inodeBitmap.flush();
-            blockBitmap.flush();
-            superblock.write(disk);
+            if (inodeTable != null) inodeTable.flush();
+            if (inodeBitmap != null) inodeBitmap.flush();
+            if (blockBitmap != null) blockBitmap.flush();
+            if (superblock != null) superblock.write(disk);
+            try {
+                disk.close();
+            } catch (Exception ignored) {
+            }
+            disk = null;
         }
         this.mounted = false;
     }

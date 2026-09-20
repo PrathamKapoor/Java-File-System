@@ -1,3 +1,5 @@
+package org.microfs.debug;
+
 import org.microfs.storage.*;
 import java.nio.file.*;
 import java.nio.*;
@@ -13,5 +15,6 @@ public class InspectInode {
         System.out.println();
         System.out.println("First byte (file type): " + (buf.get(0) & 0xFF));
         System.out.println("Byte at offset 1: " + (buf.get(1) & 0xFF));
+        disk.close();
     }
 }

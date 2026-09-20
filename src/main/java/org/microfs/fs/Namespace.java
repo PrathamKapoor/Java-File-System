@@ -48,11 +48,11 @@ public class Namespace {
             dirInode.setDirect(i, dataBlock + i);
         }
         if (blocks.size() > Inode.DIRECT_COUNT) {
-            // For simplicity, don't support directories with more entries than direct blocks in this basic phase
-            // But we allocate the indirect block reference conceptually
             int indirectBlock = allocateBlock();
             dirInode.setIndirect(indirectBlock);
         }
+
+        fs.getInodeTable().put(dirInode);
 
         // Update parent directory entry
         addDirectoryEntry(parentInode, new DirectoryEntry(dirName, newInodeNum));
@@ -93,6 +93,7 @@ public class Namespace {
             fs.getDisk().writeBlock(parentInode.getDirect(i) == Inode.NO_BLOCK ? dataBlock + i : parentInode.getDirect(i), blockData);
             parentInode.setDirect(i, parentInode.getDirect(i) == Inode.NO_BLOCK ? dataBlock + i : parentInode.getDirect(i));
         }
+        fs.getInodeTable().put(parentInode);
         fs.getInodeTable().flush();
     }
 
@@ -146,7 +147,7 @@ public class Namespace {
 
     private int allocateBlock() throws Exception {
         Bitmap bitmap = fs.getBlockBitmap();
-        return bitmap.allocate();
+        return fs.getSuperblock().getDataRegionBlock() + bitmap.allocate();
     }
 
     private String getParentPath(String path) {
@@ -193,7 +194,9 @@ public class Namespace {
         fileInode.setNumber(fileInodeNum);
         fileInode.setSize(0);
         fileInode.setMtime(System.currentTimeMillis());
+        fs.getInodeTable().put(fileInode);
         fs.getInodeTable().flush();
+        fs.getInodeBitmap().flush();
         addDirectoryEntry(parentInodeNum, new DirectoryEntry(fileName, fileInodeNum));
     }
 

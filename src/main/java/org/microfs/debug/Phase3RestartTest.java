@@ -1,3 +1,5 @@
+package org.microfs.debug;
+
 import org.microfs.fs.*;
 import java.nio.file.*;
 

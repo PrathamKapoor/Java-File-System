@@ -20,6 +20,10 @@ public final class InodeTable {
     private final boolean[] dirty;
     private final long inodesPerBlock;
 
+    public InodeTable(BlockDevice disk, int capacity) {
+        this(disk, capacity, 0);
+    }
+
     public InodeTable(BlockDevice disk, int capacity, long inodeRegionStartBlock) {
         if (capacity < 2) {
             throw new IllegalArgumentException("Need at least root + one usable inode");
@@ -85,13 +89,22 @@ public final class InodeTable {
         if (slice.get(0) == 0) {
             return;
         }
-        cache[number] = Inode.deserialize(slice);
+        Inode inode = Inode.deserialize(slice);
+        inode.setNumber(number);
+        cache[number] = inode;
         dirty[number] = false;
+    }
+
+    public void put(Inode inode) {
+        int number = inode.getNumber();
+        checkNumber(number);
+        cache[number] = inode;
+        dirty[number] = true;
     }
 
     /** Writes back dirty slots. Reads mark slots clean. */
     public void flush() {
-        for (int i = 1; i < capacity; i++) {
+        for (int i = 0; i < capacity; i++) {
             if (cache[i] != null && dirty[i]) {
                 writeSlot(i);
                 dirty[i] = false;

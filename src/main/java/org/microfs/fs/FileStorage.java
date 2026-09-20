@@ -74,7 +74,7 @@ public class FileStorage {
         // Allocate and write direct blocks
         List<Integer> allocatedBlocks = new ArrayList<>();
         for (int i = 0; i < Inode.DIRECT_COUNT && offset < size; i++) {
-            int newBlock = fs.getBlockBitmap().allocate();
+            int newBlock = fs.getSuperblock().getDataRegionBlock() + fs.getBlockBitmap().allocate();
             inode.setDirect(i, newBlock);
             allocatedBlocks.add(newBlock);
             ByteBuffer block = ByteBuffer.allocate(blockSize).order(java.nio.ByteOrder.LITTLE_ENDIAN);
@@ -94,10 +94,11 @@ public class FileStorage {
             // Not fully implemented in basic phase; document limitation
             System.err.println("WARNING: File exceeds direct block capacity; multi-block indirect not fully implemented in basic phase");
             // Allocate indirect block and fill with new block numbers conceptually
-            int indirectBlock = fs.getBlockBitmap().allocate();
+            int indirectBlock = fs.getSuperblock().getDataRegionBlock() + fs.getBlockBitmap().allocate();
             inode.setIndirect(indirectBlock);
         }
 
+        fs.getInodeTable().put(inode);
         fs.getInodeTable().flush();
         fs.getInodeBitmap().flush();
         fs.getBlockBitmap().flush();

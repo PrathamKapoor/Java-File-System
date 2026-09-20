@@ -1,3 +1,5 @@
+package org.microfs.debug;
+
 import org.microfs.benchmark.BenchmarkEngine;
 import java.nio.file.*;
 import java.time.Instant;
