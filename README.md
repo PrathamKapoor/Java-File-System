@@ -102,22 +102,13 @@ Run the final validation suite using:
 java -cp target/validation-classes org.microfs.benchmark.RealWorldValidation results/usability
 ```
 
-See `results/usability/USABILITY_REPORT.md` and `results/usability/latency.csv` for full measurement logs.
+See `results/usability/latency.csv` and `results/usability/latency.json` for full raw measurement logs.
 
 ## Documentation
 
-Comprehensive project documentation is maintained in the `docs/` directory:
+Comprehensive technical documentation is consolidated in a single specification:
 
-- [Architecture Guide](file:///C:/Projects/ADS/docs/ARCHITECTURE.md)
-- [Data Structures Reference](file:///C:/Projects/ADS/docs/DATA_STRUCTURES.md)
-- [Algorithms & Tradeoffs](file:///C:/Projects/ADS/docs/ALGORITHMS.md)
-- [Benchmark Suite & Analysis](file:///C:/Projects/ADS/docs/BENCHMARKS.md)
-- [CLI Reference](file:///C:/Projects/ADS/docs/CLI.md)
-- [Filesystem On-Disk Format](file:///C:/Projects/ADS/docs/FILESYSTEM_FORMAT.md)
-- [Development Guide](file:///C:/Projects/ADS/docs/DEVELOPMENT.md)
-- [Testing & Validation](file:///C:/Projects/ADS/docs/TESTING.md)
-- [Phase 4 Report](file:///C:/Projects/ADS/docs/PHASE4_REPORT.md)
-- [Release Notes](file:///C:/Projects/ADS/docs/RELEASE_NOTES.md)
+- [Technical Specification & Functionality Guide](file:///C:/Projects/ADS/docs/FUNCTIONALITY.md) — Complete coverage of system architecture, on-disk format, data structures, algorithms, CLI reference, and empirical benchmark findings.
 
 ## Limitations
 
