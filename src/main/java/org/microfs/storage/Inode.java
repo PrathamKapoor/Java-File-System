@@ -26,7 +26,7 @@ import java.nio.ByteBuffer;
 public final class Inode {
 
     public static final int SIZE = 64;
-    static final int NO_BLOCK = -1;
+    public static final int NO_BLOCK = -1;
     public static final int DIRECT_COUNT = 4;
 
     private FileType type;
@@ -38,7 +38,7 @@ public final class Inode {
     private int indirect;
     private int number;
 
-    Inode(FileType type) {
+    public Inode(FileType type) {
         this.type = type;
         this.permissions = 0644;
         this.linkCount = type == FileType.DIRECTORY ? 2 : 1;
@@ -147,7 +147,7 @@ public final class Inode {
         return number;
     }
 
-    void setNumber(int number) {
+    public void setNumber(int number) {
         this.number = number;
     }
 

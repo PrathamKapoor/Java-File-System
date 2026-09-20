@@ -13,18 +13,19 @@ import java.util.Optional;
  */
 public final class InodeTable {
 
-    private static final long INODE_REGION_START_BLOCK = 0L;
+    private final long inodeRegionStartBlock;
     private final BlockDevice disk;
     private final int capacity;
     private final Inode[] cache;
     private final boolean[] dirty;
     private final long inodesPerBlock;
 
-    public InodeTable(BlockDevice disk, int capacity) {
+    public InodeTable(BlockDevice disk, int capacity, long inodeRegionStartBlock) {
         if (capacity < 2) {
             throw new IllegalArgumentException("Need at least root + one usable inode");
         }
         this.disk = disk;
+        this.inodeRegionStartBlock = inodeRegionStartBlock;
         this.capacity = capacity;
         this.cache = new Inode[capacity];
         this.dirty = new boolean[capacity];
@@ -50,9 +51,6 @@ public final class InodeTable {
 
     public Optional<Inode> get(int number) {
         checkNumber(number);
-        if (number == 0) {
-            return Optional.empty();
-        }
         if (cache[number] == null) {
             load(number);
         }
@@ -68,7 +66,7 @@ public final class InodeTable {
     }
 
     private void zeroSlot(int number) {
-        long block = INODE_REGION_START_BLOCK + number / inodesPerBlock;
+        long block = inodeRegionStartBlock + number / inodesPerBlock;
         int slotInBlock = (int) (number % inodesPerBlock);
         ByteBuffer buffer = disk.readBlock(block);
         int offset = slotInBlock * Inode.SIZE;
@@ -79,7 +77,7 @@ public final class InodeTable {
     }
 
     private void load(int number) {
-        long block = INODE_REGION_START_BLOCK + number / inodesPerBlock;
+        long block = inodeRegionStartBlock + number / inodesPerBlock;
         int slotInBlock = (int) (number % inodesPerBlock);
         ByteBuffer buffer = disk.readBlock(block);
         int offset = slotInBlock * Inode.SIZE;
@@ -102,7 +100,7 @@ public final class InodeTable {
     }
 
     private void writeSlot(int number) {
-        long block = INODE_REGION_START_BLOCK + number / inodesPerBlock;
+        long block = inodeRegionStartBlock + number / inodesPerBlock;
         int slotInBlock = (int) (number % inodesPerBlock);
         ByteBuffer buffer = disk.readBlock(block);
         ByteBuffer tail = buffer.duplicate();

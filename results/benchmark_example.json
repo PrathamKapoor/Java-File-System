@@ -1,0 +1,14 @@
+{
+  "timestamp": "2026-09-19T02:00:00Z",
+  "jvm_version": "25.0.2",
+  "workload": "developer",
+  "seed": 42,
+  "results": [
+    {"strategy": "LINEAR", "entries": 100, "lookup_ms": 5, "insert_ms": 15, "delete_ms": 8, "rotations": 0, "recolors": 0},
+    {"strategy": "HASH", "entries": 100, "lookup_ms": 2, "insert_ms": 5, "delete_ms": 3, "rotations": 0, "recolors": 0},
+    {"strategy": "RB_TREE", "entries": 100, "lookup_ms": 4, "insert_ms": 12, "delete_ms": 10, "rotations": 45, "recolors": 30},
+    {"strategy": "HYBRID", "entries": 100, "lookup_ms": 2, "insert_ms": 8, "delete_ms": 5, "rotations": 0, "recolors": 0},
+    {"strategy": "ADAPTIVE(5,50)", "entries": 100, "lookup_ms": 3, "insert_ms": 10, "delete_ms": 6, "rotations": 0, "recolors": 0}
+  ],
+  "notes": "Benchmark results are environment-specific. Values are illustrative of framework output."
+}

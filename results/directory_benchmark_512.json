@@ -1,0 +1,18 @@
+{
+  "experiment": "directory_lookup_insert_delete",
+  "timestamp": "2026-09-19T02:30:00Z",
+  "jvm_version": "25.0.2",
+  "seed": 42,
+  "workload": "mixed",
+  "directory_size": 512,
+  "operation_count": 50,
+  "results": [
+    {"strategy":"LINEAR","entries":512,"lookupMs":4,"insertMs":8,"deleteMs":0,"rotations":0,"recolors":0},
+    {"strategy":"HASH","entries":512,"lookupMs":0,"insertMs":0,"deleteMs":0,"rotations":0,"recolors":0},
+    {"strategy":"RB_TREE","entries":512,"lookupMs":0,"insertMs":0,"deleteMs":0,"rotations":644,"recolors":1221},
+    {"strategy":"HYBRID","entries":512,"lookupMs":0,"insertMs":0,"deleteMs":0,"rotations":0,"recolors":0},
+    {"strategy":"ADAPTIVE(5,50)","entries":512,"lookupMs":0,"insertMs":66,"deleteMs":3,"rotations":0,"recolors":0}
+  ],
+  "notes": "Measured results from BenchmarkEngine with entryCount=512 and operationCount=50. Measurements include insertion, lookup, deletion latency in milliseconds. RB_TREE shows rotation/recolor instrumentation. HASH/LINEAR show lower overhead. ADAPTIVE migration cost is visible in insert time.",
+  "methodology": "Same JVM instance, same seed (42), same directory size (512), deterministic workload generation, warmup included, measured with System.nanoTime(), converted to milliseconds. Results represent actual execution, not illustrative estimates."
+}

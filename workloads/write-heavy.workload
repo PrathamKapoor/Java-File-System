@@ -1,0 +1,5 @@
+WORKLOAD: write-heavy
+SEED: 42
+SIZE: 1024
+OPERATIONS: 5000
+DESCRIPTION: 60% insert, 20% lookup, 20% delete on 1024-entry directory

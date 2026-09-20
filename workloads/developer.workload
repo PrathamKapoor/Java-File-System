@@ -1,0 +1,6 @@
+CREATE /projects/src/Main.java
+CREATE /projects/src/App.java
+WRITE /projects/src/Main.java 1024
+READ /projects/src/Main.java 1024
+LOOKUP /projects/src/App.java
+DELETE /projects/src/App.java

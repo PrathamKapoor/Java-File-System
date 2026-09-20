@@ -1,0 +1,9 @@
+format demo.img --blocks 50
+mount demo.img
+pwd
+mkdir /home
+ls /
+cd /home
+pwd
+unmount
+exit

@@ -1,0 +1,5 @@
+WORKLOAD: lookup-heavy
+SEED: 42
+SIZE: 256
+OPERATIONS: 10000
+DESCRIPTION: 90% lookup, 5% insert, 5% delete on 256-entry directory

@@ -1,0 +1,5 @@
+WORKLOAD: developer-style
+SEED: 42
+SIZE: 100
+OPERATIONS: 1000
+DESCRIPTION: Create src/test directories, add .java files, read, lookup, delete some files (simulates developer file operations)
