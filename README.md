@@ -37,21 +37,26 @@ java -cp target/classes org.microfs.cli.MicrofsCLI
 
 ## Key commands
 
-```text
-format [image]
-mount [image]
-unmount
-mkdir <path>
-ls [path]
-cd <path>
-pwd
-touch <file>
-cat <file>
-stat <path>
-df
-fsck [image]
-benchmark
-```
+The interactive CLI supports these commands:
+
+| Command | Purpose |
+|---|---|
+| `format [image]` | Create a new virtual disk image. Optional `--block-size` and `--blocks` options configure its geometry. |
+| `mount [image]` | Mount an existing virtual disk image. |
+| `unmount` | Flush filesystem metadata and unmount the current image. |
+| `mkdir <path>` | Create a directory at the supplied path. |
+| `ls [path]` | List entries in a directory; defaults to the current directory. |
+| `cd [path]` | Change the shell's current directory; defaults to `/`. |
+| `pwd` | Print the current directory. |
+| `touch [file]` | Create a file inode; defaults to `/test.txt`. |
+| `cat [file]` | Invoke the file-display command; defaults to `/test.txt`. |
+| `stat [path]` | Invoke the metadata-display command; defaults to `/`. |
+| `df` | Invoke the filesystem usage command. |
+| `fsck [image]` | Run the read-only filesystem consistency-check command. |
+| `benchmark` | Select the benchmark command entry point. |
+| `exit` / `quit` | Leave the interactive shell. |
+
+The command names above are the commands currently registered by `MicrofsCLI`; advanced operations such as `find`, deletion, and a fully populated `stat` output are not implemented in this release.
 
 ## Data structures
 
