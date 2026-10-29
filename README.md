@@ -1,122 +1,86 @@
 # MicroFS
 
-MicroFS is a persistent Java filesystem simulator that uses workload-adaptive data structures for namespace indexing and storage management, with an experimental framework for measuring algorithmic tradeoffs.
+MicroFS is a small Java filesystem simulator built around a virtual disk image. It is an academic project for exploring how data structures support directory lookups, block allocation and persistent metadata. It is not an operating-system filesystem.
 
-## What it is
+## Getting started
 
-MicroFS simulates a filesystem over a virtual disk image (`disk.img`). It supports:
+Requirements: JDK 21 or newer and Maven.
 
-- Persistent disk format with superblock, inode table, bitmaps, and data blocks
-- Multiple directory representations: Linear, Hash, RB-Tree, Hybrid, Adaptive
-- Implemented core data structures: Red-Black Tree, Trie, persistent Bitmaps, directory strategies
-- Standalone / partial frameworks: LRU cache (framework interface), block allocation framework
-- CLI with core filesystem commands
-- Benchmark engine and workload framework
-- FSCK consistency checker
-
-## What it investigates
-
-Can a workload-adaptive combination of classical data structures reduce namespace lookup, path resolution, and storage-management overhead compared with fixed-structure baseline designs?
-
-## Build
-
-```bash
+```sh
+mvn test
 mvn compile
-```
-
-## Run
-
-```bash
-mvn compile exec:java -Dexec.mainClass="org.microfs.cli.MicrofsCLI" -Dexec.args="format disk.img"
-```
-
-Or interactively:
-
-```bash
 java -cp target/classes org.microfs.cli.MicrofsCLI
 ```
 
-## Key commands
+At the `microfs>` prompt, create a **new** image and try the filesystem:
 
-The interactive CLI supports these commands:
+```text
+format demo.img
+mount demo.img
+mkdir /projects
+touch /projects/note.txt
+write /projects/note.txt Hello from MicroFS
+cat /projects/note.txt
+mv /projects/note.txt /projects/report.txt
+chmod 600 /projects/report.txt
+stat /projects/report.txt
+ls /projects
+unmount
+mount demo.img
+cat /projects/report.txt
+rm /projects/report.txt
+unmount
+exit
+```
 
-| Command | Purpose |
-|---|---|
-| `format [image]` | Create a new virtual disk image. Optional `--block-size` and `--blocks` options configure its geometry. |
-| `mount [image]` | Mount an existing virtual disk image. |
-| `unmount` | Flush filesystem metadata and unmount the current image. |
-| `mkdir <path>` | Create a directory at the supplied path. |
-| `ls [path]` | List entries in a directory; defaults to the current directory. |
-| `cd [path]` | Change the shell's current directory; defaults to `/`. |
-| `pwd` | Print the current directory. |
-| `touch [file]` | Create a file inode; defaults to `/test.txt`. |
-| `cat [file]` | Invoke the file-display command; defaults to `/test.txt`. |
-| `stat [path]` | Invoke the metadata-display command; defaults to `/`. |
-| `df` | Invoke the filesystem usage command. |
-| `fsck [image]` | Run the read-only filesystem consistency-check command. |
-| `benchmark` | Select the benchmark command entry point. |
-| `exit` / `quit` | Leave the interactive shell. |
+`format` overwrites the named image. To reopen an existing image, use `mount` without formatting it again. The default image is `disk.img`; the default geometry is 512-byte blocks and 1,000 blocks. Use the default block size: directory serialization currently assumes 512 bytes.
 
-The command names above are the commands currently registered by `MicrofsCLI`; advanced operations such as `find`, deletion, and a fully populated `stat` output are not implemented in this release.
+## Shell commands
+
+| Command | Description |
+| --- | --- |
+| `format [image] [--block-size N] [--blocks N]` | Create a fresh image. |
+| `mount [image]`, `unmount` | Open an image and flush/close it. |
+| `mkdir <path>` | Create a directory; its parent must exist. |
+| `touch <path>` | Create an empty file. |
+| `write <path> <text>` | Replace an existing file's contents with UTF-8 text. |
+| `cat <path>` | Display file contents as UTF-8 text. |
+| `rm <path>` | Delete a regular file and release its blocks and inode. |
+| `mv <source> <destination>` | Rename or move an entry to a new, unused path. |
+| `chmod <mode> <path>` | Store a three-digit octal permission mode. |
+| `stat [path]` | Show the inode, type, size, permissions and modification time. |
+| `ls [path]`, `cd [path]`, `pwd` | List and navigate directories. |
+| `exit`, `quit` | Leave the shell; unmount first. |
+
+Permissions are stored metadata; the simulator does not enforce user access rights. `write` accepts text, replaces the whole file, and supports at most four direct blocks. `rm` handles regular files only. The shell's `df`, `fsck` and `benchmark` commands are placeholders. The separate checker can be run after unmounting:
+
+```sh
+java -cp target/classes org.microfs.fs.Fsck demo.img
+```
 
 ## Data structures
 
-### Implemented
-- **RedBlackTree**: Genuine self-balancing Red-Black Tree with insertion, deletion, rotations, recoloring, min/max, successor/predecessor, and invariant verification.
-- **Trie**: Character-level Trie for auxiliary prefix searching and namespace autocompletion.
-- **Bitmap**: Persistent inode and data block allocation bitmaps with bitwise scan-and-set and disk synchronization.
-- **Directory Indexing Strategies**:
-  - `LinearDirectory`: Unsorted list baseline ($O(n)$ search).
-  - `HashDirectory`: Hash table indexing for fast exact lookups ($O(1)$ average).
-  - `RBTreeDirectory`: Ordered tree index supporting range queries and ordered listings ($O(\log n)$).
-  - `HybridDirectory`: Dual index combining hash table lookups with trie prefix searches.
-  - `AdaptiveDirectory`: Dynamically transitions between Linear, Hash, and RB-Tree based on entry count and query patterns.
+- **Bitmap:** tracks inode and data-block allocation with one bit per resource. Allocation scans for a free bit; modified bitmaps are persisted.
+- **Inode table:** fixed-size records hold file type, permissions, size, modification time and block pointers. A directory entry maps a name to an inode number.
+- **Linear directory:** an `ArrayList` provides a simple baseline with linear lookup; the list is kept sorted on insertion.
+- **Hash directory:** a `HashMap` supports expected constant-time exact lookup; listing sorts the entries.
+- **Red-black tree:** a balanced ordered index supports logarithmic lookup. The current listing implementation traverses keys and searches for their values.
+- **Hybrid directory:** combines the hash and red-black tree indexes for exact lookups and ordered listings, at the cost of maintaining both.
+- **Adaptive directory:** switches between linear, hash and hybrid indexes at configurable size thresholds. Its current implementation rebuilds on each update, so construction is expensive.
+- **Trie:** a separate character-based structure used to explore prefix search.
 
-### Framework / Partial
-- **LRU Cache**: Interface and standalone eviction cache framework; ready for integration into a future page/buffer cache layer, but not part of the primary disk runtime.
-- **Block Allocation Strategies**: Basic bitmap allocation integrated into disk formatting and file storage; extensible framework provided for pluggable allocation policies.
+The directory indexes are experimental in-memory implementations used by the benchmark. The persistent `Namespace` currently reads directory entries and scans them during path lookup; it does not use the adaptive index for CLI operations.
 
-## Tests
+## Measurements
 
-```bash
-mvn test
+The recorded results in [latency.csv](results/usability/latency.csv) are specific to the tested machine, Java runtime and generated workload. For example, at 10,000 entries the warm median for exact lookup was 28 µs for linear and 0.1 µs for hash. At 50,000 entries, linear prefix search had a median of about 715 µs and the standalone trie about 1.79 ms. These are in-memory measurements, not end-to-end filesystem timings. The data does not establish why the trie was slower in that run.
+
+The benchmark code is in `org.microfs.benchmark`; `RealWorldValidation` writes results to a directory supplied on the command line. Use a fresh output directory because it overwrites result files.
+
+```sh
+java -cp target/classes org.microfs.benchmark.RealWorldValidation results/new-run
 ```
 
-## Practical Performance & Key Benchmark Results
+## Current limits
 
-MicroFS includes a reproducible latency validation suite covering realistic namespace sizes and filesystem operations (`results/usability/USABILITY_REPORT.md`, measured on JDK 25, Windows 11):
-
-| Workload / Operation | Scale (Entries) | Strategy | Warm Median Latency | Key Observation / DSA Takeaway |
-|---|---:|---|---:|---|
-| Exact lookup | 50,000 | Hash | ~100 ns | Near-instant constant-time ($O(1)$) retrieval at scale |
-| Exact lookup baseline | 10,000 | Linear | 28.0 µs | Linear scan exhibits severe latency degradation ($O(n)$) |
-| Prefix search comparison | 50,000 | Linear vs. Trie | Linear: ~715 µs<br>Trie: ~1.79 ms | **Teaching point:** Trie was slower than linear prefix search due to pointer hopping & cache misses vs contiguous array scanning |
-| Ordered directory listing | 50,000 | RB-Tree | ~44.8 ms | Full in-order traversal yields sorted output without external sort pass |
-| Dynamic index construction | 1,000 | Adaptive | ~197.6 ms | Rebuilding representations during scale transition incurs measurable construction cost |
-
-> **Key DSA Insight:** While asymptotic theory predicts that a Trie should outperform linear scanning for prefix search, hardware cache locality dominates at short prefix lengths. Iterating contiguous byte arrays in L1/L2 cache outpaces node-by-node pointer traversal across scattered heap-allocated Trie nodes.
-
-Run the final validation suite using:
-
-```text
-java -cp target/validation-classes org.microfs.benchmark.RealWorldValidation results/usability
-```
-
-See `results/usability/latency.csv` and `results/usability/latency.json` for full raw measurement logs.
-
-## Documentation
-
-Comprehensive technical documentation is consolidated in a single specification:
-
-- [Technical Specification & Functionality Guide](file:///C:/Projects/ADS/docs/FUNCTIONALITY.md) — Complete coverage of system architecture, on-disk format, data structures, algorithms, CLI reference, and empirical benchmark findings.
-
-## Limitations
-
-- Single-threaded core
-- Not a replacement for production filesystems (NTFS/ext4/APFS)
-- Benchmark results are environment-specific
-- Advanced features (journaling, symlinks, hard links) are deferred
-
-## License
-
-MIT (or as configured)
+The filesystem is single-threaded and has no journaling or crash-recovery guarantee. Indirect file writes, directory deletion, symbolic links and hard links are not implemented. Directories have a four-block limit, and some operations do not provide transactional rollback after I/O errors. Large-scale indexing remains separate from the persistent namespace. The [technical guide](docs/FUNCTIONALITY.md) describes the original design; where it differs from the source or this README, the source is authoritative.

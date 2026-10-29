@@ -60,9 +60,20 @@ public class FileStorage {
 
     /** Writes data to a file given its inode and data bytes. Simplified for basic phase. */
     public void writeFile(Inode inode, byte[] data) throws Exception {
+        int blockSize = fs.getDisk().blockSize();
+        if (data.length > Inode.DIRECT_COUNT * blockSize) {
+            throw new IllegalArgumentException("File exceeds direct block capacity");
+        }
+        int required = (data.length + blockSize - 1) / blockSize;
+        if (fs.getBlockBitmap().countFree() < required) {
+            throw new IllegalStateException("Not enough free blocks for write");
+        }
+        int[] oldBlocks = new int[Inode.DIRECT_COUNT];
+        for (int i = 0; i < Inode.DIRECT_COUNT; i++) oldBlocks[i] = inode.getDirect(i);
+        int oldIndirect = inode.getIndirect();
+        if (oldIndirect != Inode.NO_BLOCK) throw new IllegalStateException("Indirect files are not supported for writing");
         long size = data.length;
         inode.setSize(size);
-        int blockSize = fs.getDisk().blockSize();
         int offset = 0;
 
         // Clear previous direct blocks (simplified: don't reuse old blocks for simplicity)
@@ -100,6 +111,9 @@ public class FileStorage {
 
         fs.getInodeTable().put(inode);
         fs.getInodeTable().flush();
+        for (int block : oldBlocks) {
+            if (block != Inode.NO_BLOCK) fs.getBlockBitmap().free(block - fs.getSuperblock().getDataRegionBlock());
+        }
         fs.getInodeBitmap().flush();
         fs.getBlockBitmap().flush();
     }

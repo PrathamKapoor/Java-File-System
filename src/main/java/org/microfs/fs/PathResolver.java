@@ -15,7 +15,7 @@ public class PathResolver {
             if (part.isEmpty() || part.equals(".")) {
                 // skip
             } else if (part.equals("..")) {
-                tokens.remove(tokens.isEmpty() ? -1 : tokens.size() - 1);
+                if (!tokens.isEmpty()) tokens.remove(tokens.size() - 1);
             } else {
                 tokens.add(part);
             }
@@ -25,13 +25,9 @@ public class PathResolver {
 
     public static String canonicalize(String currentPath, String targetPath) {
         List<String> current = tokenize(currentPath);
-        List<String> target = tokenize(targetPath);
-        List<String> result = new ArrayList<>(current);
-        if (targetPath.startsWith("/")) {
-            result.clear();
-        }
-        for (String token : target) {
-            if (token.equals(".")) {
+        List<String> result = targetPath.startsWith("/") ? new ArrayList<>() : new ArrayList<>(current);
+        for (String token : targetPath.split("/")) {
+            if (token.isEmpty() || token.equals(".")) {
                 // ignore
             } else if (token.equals("..")) {
                 if (!result.isEmpty() && !(result.size() == 1 && result.get(0).isEmpty())) {

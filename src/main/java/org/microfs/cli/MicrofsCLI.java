@@ -1,10 +1,13 @@
 package org.microfs.cli;
 
 import org.microfs.fs.*;
+import org.microfs.storage.Inode;
+import org.microfs.storage.FileType;
 
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.*;
+import java.nio.charset.StandardCharsets;
 
 /**
  * Interactive CLI for MicroFS.
@@ -76,6 +79,18 @@ public class MicrofsCLI {
             case "cat":
                 catCommand(args);
                 break;
+            case "write":
+                writeCommand(args);
+                break;
+            case "rm":
+                deleteCommand(args);
+                break;
+            case "mv":
+                moveCommand(args);
+                break;
+            case "chmod":
+                chmodCommand(args);
+                break;
             case "stat":
                 statCommand(args);
                 break;
@@ -128,7 +143,7 @@ public class MicrofsCLI {
 
     private void mkdirCommand(String[] args) throws Exception {
         checkMounted();
-        String path = args.length > 1 ? args[1] : "/test";
+        String path = PathResolver.canonicalize(currentDir, args.length > 1 ? args[1] : "/test");
         namespace.mkdir(path);
         System.out.println("mkdir " + path);
     }
@@ -149,29 +164,63 @@ public class MicrofsCLI {
     }
 
     private void cdCommand(String[] args) throws Exception {
+        checkMounted();
         String target = args.length > 1 ? args[1] : "/";
-        currentDir = PathResolver.canonicalize(currentDir, target);
+        String resolved = PathResolver.canonicalize(currentDir, target);
+        if (namespace.stat(resolved).getType() != FileType.DIRECTORY) throw new IllegalArgumentException("Not a directory: " + resolved);
+        currentDir = resolved;
         if (namespace != null) namespace.setCurrentPath(currentDir);
         System.out.println(currentDir);
     }
 
     private void touchCommand(String[] args) throws Exception {
         checkMounted();
-        String file = args.length > 1 ? args[1] : "/test.txt";
+        String file = PathResolver.canonicalize(currentDir, args.length > 1 ? args[1] : "/test.txt");
         namespace.createFile(file);
         System.out.println("touch " + file);
     }
 
     private void catCommand(String[] args) throws Exception {
         checkMounted();
-        String file = args.length > 1 ? args[1] : "/test.txt";
-        System.out.println("cat " + file);
+        String file = PathResolver.canonicalize(currentDir, args.length > 1 ? args[1] : "/test.txt");
+        System.out.println(new String(namespace.readFile(file), StandardCharsets.UTF_8));
+    }
+
+    private void writeCommand(String[] args) throws Exception {
+        checkMounted();
+        if (args.length < 3) throw new IllegalArgumentException("Usage: write <path> <text>");
+        String file = PathResolver.canonicalize(currentDir, args[1]);
+        namespace.writeFile(file, String.join(" ", Arrays.copyOfRange(args, 2, args.length)).getBytes(StandardCharsets.UTF_8));
+        System.out.println("Wrote " + file);
+    }
+
+    private void deleteCommand(String[] args) throws Exception {
+        checkMounted();
+        if (args.length != 2) throw new IllegalArgumentException("Usage: rm <file>");
+        String file = PathResolver.canonicalize(currentDir, args[1]);
+        namespace.deleteFile(file);
+        System.out.println("Removed " + file);
+    }
+
+    private void moveCommand(String[] args) throws Exception {
+        checkMounted();
+        if (args.length != 3) throw new IllegalArgumentException("Usage: mv <source> <destination>");
+        namespace.move(PathResolver.canonicalize(currentDir, args[1]), PathResolver.canonicalize(currentDir, args[2]));
+        System.out.println("Moved " + args[1] + " to " + args[2]);
+    }
+
+    private void chmodCommand(String[] args) throws Exception {
+        checkMounted();
+        if (args.length != 3 || !args[1].matches("[0-7]{3}")) throw new IllegalArgumentException("Usage: chmod <octal-mode> <path>");
+        namespace.chmod(PathResolver.canonicalize(currentDir, args[2]), Integer.parseInt(args[1], 8));
+        System.out.println("Updated permissions");
     }
 
     private void statCommand(String[] args) throws Exception {
         checkMounted();
-        String path = args.length > 1 ? args[1] : "/";
-        System.out.println("stat " + path);
+        String path = PathResolver.canonicalize(currentDir, args.length > 1 ? args[1] : "/");
+        Inode inode = namespace.stat(path);
+        System.out.printf("%s: inode=%d type=%s size=%d permissions=%03o modified=%s%n", path, inode.getNumber(), inode.getType(), inode.getSize(), inode.getPermissions(), java.time.Instant.ofEpochMilli(inode.getMtime()));
     }
 
     private void dfCommand() throws Exception {

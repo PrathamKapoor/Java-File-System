@@ -62,7 +62,7 @@ public final class InodeTable {
     }
 
     /** Permanently invalidates a slot. Caller is responsible for freeing blocks first. */
-    void free(int number) {
+    public void free(int number) {
         checkNumber(number);
         cache[number] = null;
         dirty[number] = false;
